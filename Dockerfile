@@ -2,7 +2,7 @@
 FROM python:3.10-bookworm
 
 LABEL org.opencontainers.image.created=${BUILD_DATE}
-LABEL org.opencontainers.image.version="0.0.0"
+LABEL org.opencontainers.image.version="1.0.0-dev.1"
 LABEL org.opencontainers.image.authors="Nico Reinartz <nico.reinartz@rwth-aachen.de>"
 LABEL org.opencontainers.image.vendor="Nico Reinartz"
 LABEL org.opencontainers.image.title="Trend Detection API and processing service"
