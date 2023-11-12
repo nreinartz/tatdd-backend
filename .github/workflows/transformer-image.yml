@@ -48,3 +48,4 @@ jobs:
             "latest"
             ${{ env.VERSION }}
           labels: ${{ steps.meta.outputs.labels }}
+          file: transformer/Dockerfile
