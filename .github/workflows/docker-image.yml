@@ -20,8 +20,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ github.action_repository }}
-            ghcr.io/${{ github.action_repository }}
+            ${{ github.repository }}
+            ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=${{ env.VERSION }}
             type=sha
