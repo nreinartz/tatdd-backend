@@ -8,4 +8,4 @@ LABEL org.opencontainers.image.title="WeaviteTransformer"
 LABEL org.opencontainers.image.description="Transformer for Weaviate, using allenai/specter2"
 LABEL org.opencontainers.image.source = "https://github.com/nreinartz/tatdd-backend"
 
-RUN MODEL_NAME=allenai/specter2_base ./download.py
+RUN MODEL_NAME=allenai/specter2_aug2023refresh_base ./download.py
