@@ -93,6 +93,7 @@ class DiscoveredTopic:
 class ClusteringResults:
     points_x: list[float]
     points_y: list[float]
+    points_z: list[float]
     topic_labels: list[int]
 
 

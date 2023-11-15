@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt --no-deps
 COPY ./src .
 
 ENV WEAVIATE_HOST="weaviate"
-ENV WEAVIATE_PORT="8080"
+ENV WEAVIATE_REST_PORT="8080"
+ENV WEAVIATE_GRPC_PORT="50051"
 
 ENV POSTGRES_HOST="postgres"
 ENV POSTGRES_USER="postgres"

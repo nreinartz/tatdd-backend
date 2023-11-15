@@ -35,8 +35,9 @@ POSTGRES_DB = os.getenv("POSTGRES_DB", "trend_api")
 CONNECTION_STRING = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}/{POSTGRES_DB}"
 
 WEAVIATE_HOST = os.getenv("WEAVIATE_HOST", "weaviate")
-WEAVIATE_PORT = os.getenv("WEAVIATE_PORT", "8080")
-WEAVIATE_ENDPOINT = f"http://{WEAVIATE_HOST}:{WEAVIATE_PORT}"
+WEAVIATE_REST_PORT = os.getenv("WEAVIATE_PORT", "8080")
+WEAVIATE_GRPC_PORT = os.getenv("WEAVIATE_GRPC_PORT", "50051")
+WEAVIATE_ENDPOINT = f"http://{WEAVIATE_HOST}:{WEAVIATE_REST_PORT}"
 
 TRENDDESCRIPTOR = os.getenv("TREND_DESCRIPTOR", "rule_based")
 
@@ -46,7 +47,8 @@ async def lifespan(app: FastAPI):
     # Startup
     app.state.pool = await asyncpg.create_pool(CONNECTION_STRING)
     app.state.weaviate_client = weaviate.WeaviateClient(
-        weaviate.ConnectionParams.from_url(WEAVIATE_ENDPOINT, 50051)
+        weaviate.ConnectionParams.from_url(
+            WEAVIATE_ENDPOINT, WEAVIATE_GRPC_PORT)
     )
 
     async with app.state.pool.acquire() as connection:

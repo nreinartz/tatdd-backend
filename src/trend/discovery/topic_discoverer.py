@@ -88,13 +88,14 @@ class TopicDiscoverer:
         else:
             sampled_topics = topic_per_doc
 
-        umap_model = UMAP(n_neighbors=10, n_components=2,
+        umap_model = UMAP(n_neighbors=10, n_components=3,
                           min_dist=0.0, metric='cosine').fit(self.embeddings)
         embeddings_2d = umap_model.embedding_
 
         # Separate the coordinates and topic labels
         points_x = [float(coord[0]) for coord in embeddings_2d]
         points_y = [float(coord[1]) for coord in embeddings_2d]
+        points_z = [float(coord[2]) for coord in embeddings_2d]
         topic_labels = sampled_topics
 
-        return ClusteringResults(points_x, points_y, topic_labels)
+        return ClusteringResults(points_x, points_y, points_z, topic_labels)
