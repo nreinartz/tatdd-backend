@@ -13,7 +13,7 @@ from trend.discovery.topic_discoverer import TopicDiscoverer
 
 async def process_query(uuid: str, query_repo: QueryRepository,
                         weaviate_accessor: WeaviateAccessor, trend_analyser: TrendAnalyser,
-                        trend_descriptor: BaseTrendDescriptor, topic_discoverer: TopicDiscoverer, data_statistics: DataStatistics):
+                        trend_descriptor: BaseTrendDescriptor, data_statistics: DataStatistics):
 
     entry = await query_repo.get_query_entry(uuid)
     entry.results = AnalysisResults()
@@ -23,7 +23,7 @@ async def process_query(uuid: str, query_repo: QueryRepository,
             await __analyse_trends(query_repo, entry, trend_analyser,
                                    trend_descriptor, weaviate_accessor, data_statistics)
 
-            await __discover_topics(query_repo, entry, topic_discoverer, weaviate_accessor)
+            await __discover_topics(query_repo, entry, weaviate_accessor)
         except Exception as e:
             await query_repo.update_query_progress(entry.uuid, QueryProgress.FAILED)
             raise e
@@ -102,7 +102,7 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
     await query_repo.update_query_entry(entry)
 
 
-async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, topic_discoverer: TopicDiscoverer, weaviate_accessor: WeaviateAccessor):
+async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
     await query_repo.update_query_progress(entry.uuid, QueryProgress.DISCOVERING_TOPICS)
 
     max_documents = 6000
@@ -110,7 +110,6 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, topi
 
     docs = []
     years = []
-    vectors = []
 
     for year in range(entry.start_year, entry.end_year + 1):
         if entry.results.search_results.adjusted[year - entry.start_year] == 0:
@@ -126,12 +125,19 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, topi
             lambda: weaviate_accessor.get_publications_in_year(
                 entry.topics, year, doc_limit)
         )
-        docs.extend([x["title"] + ". " + x["abstract"] for x in publications])
-        years.extend([x["publication_year"] for x in publications])
-        vectors.extend([x["_additional"]["vector"] for x in publications])
+        docs.extend(
+            [f"{x.properties['title']}: {x.properties['abstract']}" for x in publications])
+
+        years.extend([x.properties["year"] for x in publications])
+
+    topic_discoverer = TopicDiscoverer(docs, years)
+
+    await run_in_threadpool(
+        lambda: topic_discoverer.init_model()
+    )
 
     entry.results.topic_discovery_results = await run_in_threadpool(
-        lambda: topic_discoverer.discover_topics(docs, years, vectors)
+        lambda: topic_discoverer.discover_topics()
     )
 
     await query_repo.update_query_entry(entry)
@@ -140,22 +146,22 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, topi
 async def __fetch_citation_recommendations(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
     await query_repo.update_query_progress(entry.uuid, QueryProgress.CITATION_RETRIEVAL)
 
-    publications_raw = await run_in_threadpool(
+    publications = await run_in_threadpool(
         lambda: weaviate_accessor.get_matching_publications(
             entry.topics, entry.start_year, entry.end_year, 15, entry.min_citations)
     )
 
     entry.results.citation_results = CitationRecommendationResults(
         publications=[Publication(
-            title=x["title"],
-            doi=x["doi"],
-            authors=x["authors"],
-            year=x["publication_year"],
-            type=x["publication_type"],
-            abstract=x["abstract"],
-            distance=x["_additional"]["distance"],
-            citations=x["n_citations"]
-        ) for x in publications_raw]
+            title=x.properties["title"],
+            doi=x.properties["doi"],
+            authors=x.properties["authors"],
+            year=x.properties["year"],
+            type=x.properties["type"],
+            abstract=x.properties["abstract"],
+            distance=x.metadata.distance,
+            citations=x.properties["n_citations"] if "n_citations" in x.properties else None
+        ) for x in publications]
     )
 
     await query_repo.update_query_entry(entry)

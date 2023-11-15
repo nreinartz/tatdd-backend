@@ -25,7 +25,6 @@ from trend.chart.chart_generator import generate_trend_chart
 from trend.descriptor.base_descriptor import BaseTrendDescriptor
 from trend.descriptor.gpt_descriptor import get_gpt_descriptor
 from trend.descriptor.rule_based_descriptor import get_rule_based_descriptor
-from trend.discovery.topic_discoverer import TopicDiscoverer, get_topic_discoverer
 
 load_dotenv()
 
@@ -46,8 +45,9 @@ TRENDDESCRIPTOR = os.getenv("TREND_DESCRIPTOR", "rule_based")
 async def lifespan(app: FastAPI):
     # Startup
     app.state.pool = await asyncpg.create_pool(CONNECTION_STRING)
-    app.state.weaviate_client = weaviate.Client(
-        WEAVIATE_ENDPOINT, timeout_config=(5, 100))
+    app.state.weaviate_client = weaviate.WeaviateClient(
+        weaviate.ConnectionParams.from_url(WEAVIATE_ENDPOINT, 50051)
+    )
 
     async with app.state.pool.acquire() as connection:
         await prepare_database(connection)
@@ -114,7 +114,7 @@ def update_data_statistics():
 @app.post("/api/queries", response_model=QueryEntry, status_code=status.HTTP_201_CREATED)
 async def create_process_request(query_request: QueryRequest, background_tasks: BackgroundTasks, query_repo: QueryRepository = Depends(get_query_repository),
                                  weaviate_accessor: WeaviateAccessor = Depends(get_weaviate_accessor), trend_analyser: TrendAnalyser = Depends(get_trend_analyser),
-                                 trend_descriptor: BaseTrendDescriptor = Depends(get_trend_descriptor), topic_discoverer: TopicDiscoverer = Depends(get_topic_discoverer)):
+                                 trend_descriptor: BaseTrendDescriptor = Depends(get_trend_descriptor)):
 
     entry: QueryEntry = await query_repo.create_query_entry(query_request)
 
@@ -125,7 +125,6 @@ async def create_process_request(query_request: QueryRequest, background_tasks: 
         weaviate_accessor,
         trend_analyser,
         trend_descriptor,
-        topic_discoverer,
         app.state.data_statistics
     )
 

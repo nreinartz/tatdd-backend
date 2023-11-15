@@ -15,9 +15,10 @@ class QueryProgress(int, Enum):
     ANALYSING_TRENDS = 3
     GENERATING_DESCRIPTION = 4
     DISCOVERING_TOPICS = 5
-    CITATION_RETRIEVAL = 6
-    FINISHED = 7
-    FAILED = 8
+    CLUSTERING_TOPICS = 6
+    CITATION_RETRIEVAL = 7
+    FINISHED = 8
+    FAILED = 9
 
 
 class TrendType(int, Enum):
@@ -82,15 +83,24 @@ class Publication:
 
 @dataclass
 class DiscoveredTopic:
-    name: str
+    id: int
     words: list[list[str]]
     frequencies: list[int]
     timestamps: list[int]
 
 
 @dataclass
+class ClusteringResults:
+    points_x: list[float]
+    points_y: list[float]
+    topic_labels: list[int]
+
+
+@dataclass
 class TopicDiscoveryResults:
-    topics: list[DiscoveredTopic]
+    topics: dict[str, str]
+    clusters: ClusteringResults
+    topics_over_time: list[DiscoveredTopic]
 
 
 @dataclass
