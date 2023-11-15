@@ -1,40 +1,42 @@
 import weaviate
+from weaviate.classes import Filter, MetadataQuery
+
 import datetime
 
 
 class WeaviateAccessor:
-    def __init__(self, client: weaviate.client.Client):
+    def __init__(self, client: weaviate.WeaviateClient):
         self.client = client
+        self.publications = self.client.collections.get("Publication")
 
     def get_grouped_per_year(self, concepts: list[str],
                              distance: float, group_prop: str, start_year: int = 1000,
-                             end_year: int = datetime.datetime.now().year) -> int:
-        return (self.client.query.aggregate("Publication")
-                .with_fields("meta { count } groupedBy { value }")
-                .with_near_text({"concepts": concepts, "distance": distance})
-                .with_meta_count()
-                .with_where(self.__construct_year_filter(start_year, end_year))
-                .with_group_by_filter([group_prop])
-                .do())
+                             end_year: int = datetime.datetime.now().year):
+
+        return self.publications.aggregate_group_by.near_text(
+            query=concepts,
+            distance=distance,
+            filters=Filter("year").greater_or_equal(
+                start_year) & Filter("year").less_or_equal(end_year),
+            group_by=group_prop
+        )
 
     def get_publications_in_year(self, concepts: list[str], year: int, limit: int = 2000):
-        results = (self.client.query.get("Publication", ["title", "abstract", "publication_year"])
-                   .with_near_text({"concepts": concepts})
-                   .with_additional(["vector"])
-                   .with_where({"path": "publication_year", "operator": "Equal", "valueInt": year})
-                   .with_limit(limit)
-                   .do())
+        results = self.publications.query.near_text(
+            query=concepts,
+            filters=Filter("year").equal(year),
+            return_metadata=MetadataQuery(vector=True),
+            return_properties=["title", "abstract", "year"],
+            limit=limit
+        )
 
-        if "data" not in results:
-            return []
-
-        return results['data']['Get']['Publication']
+        return results.objects
 
     def get_publications_per_year(self, concepts: list[str],
                                   distance: float, start_year: int = 1000,
-                                  end_year: int = datetime.datetime.now().year) -> int:
+                                  end_year: int = datetime.datetime.now().year):
         query_results = self.get_grouped_per_year(
-            concepts, distance, "publication_year", start_year, end_year)
+            concepts, distance, "year", start_year, end_year)
 
         results_default = {
             key: 0
@@ -42,64 +44,48 @@ class WeaviateAccessor:
         }
 
         results_query = dict(
-            [(int(x["groupedBy"]["value"]), x["meta"]["count"])
-             for x in query_results["data"]["Aggregate"]["Publication"]]
+            [(int(entry.grouped_by.value), entry.total_count)
+             for entry in query_results]
         )
 
         return {**results_default, **results_query}
 
     def get_count_per_pub_type(self, concepts: list[str],
                                distance: float, start_year: int = 1000,
-                               end_year: int = datetime.datetime.now().year) -> int:
+                               end_year: int = datetime.datetime.now().year):
         query_results = self.get_grouped_per_year(
-            concepts, distance, "publication_type", start_year, end_year)
+            concepts, distance, "type", start_year, end_year)
+
         return dict(
-            [(x["groupedBy"]["value"], x["meta"]["count"])
-             for x in query_results["data"]["Aggregate"]["Publication"]]
+            [(entry.grouped_by.value, entry.total_count)
+             for entry in query_results]
         )
 
     def get_matching_publications(self, concepts: list[str], start_year: int,
-                                  end_year: int, limit: int = 3000, min_citation_count: int | None = None) -> list[dict]:
-        query = (self.client.query
-                 .get("Publication", ["title", "abstract", "publication_year", "doi", "publication_type", "authors", "n_citations"])
-                 .with_additional("distance")
-                 .with_near_text({"concepts": concepts})
-                 .with_limit(limit))
+                                  end_year: int, limit: int = 3000, min_citation_count: int | None = None):
 
-        if start_year != None or end_year != None:
-            query = query.with_where(
-                self.__construct_year_filter(start_year, end_year))
+        filters = Filter("year").greater_or_equal(
+            start_year) & Filter("year").less_or_equal(end_year)
 
-        if min_citation_count != None:
-            query = query.with_where({
-                "path": ["n_citations"],
-                "operator": "GreaterThanEqual",
-                "valueInt": min_citation_count
-            })
+        if min_citation_count != None and min_citation_count > 0:
+            filters = filters & Filter(
+                "n_citations").greater_or_equal(min_citation_count)
 
-        response = query.do()
+        results = self.publications.query.near_text(
+            query=concepts,
+            filters=filters,
+            return_properties=["title", "doi", "authors",
+                               "year", "type", "abstract", "n_citations"],
+            return_metadata=MetadataQuery(distance=True),
+            limit=limit
+        )
 
-        return response["data"]["Get"]["Publication"][1:]
+        return results.objects
 
     def get_statistics_for_year(self, year: int) -> int:
-        return (self.client.query.aggregate("Publication")
-                .with_where({"path": ["publication_year"], "operator": "Equal", "valueInt": year})
-                .with_meta_count()
-                .do()
-                )["data"]["Aggregate"]["Publication"][0]["meta"]["count"]
+        results = self.publications.aggregate_group_by.over_all(
+            filters=Filter("year").equal(year),
+            group_by="year"
+        )
 
-    def __construct_year_filter(self, start_year: int = None, end_year: int = None) -> dict:
-        return {
-            "operator": "And",
-            "operands": [
-                {
-                    "path": ["publication_year"],
-                    "operator": "GreaterThanEqual",
-                    "valueInt": start_year,
-                }, {
-                    "path": ["publication_year"],
-                    "operator": "LessThanEqual",
-                    "valueInt": end_year
-                }
-            ]
-        }
+        return results[0].total_count
