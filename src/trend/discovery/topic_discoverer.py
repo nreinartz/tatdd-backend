@@ -1,37 +1,38 @@
 import numpy as np
-from models.models import ClusteringResults, DiscoveredTopic, TopicDiscoveryResults
+from models.models import ClusteringResults, DiscoveredTopic
 from bertopic import BERTopic
 from bertopic.vectorizers import ClassTfidfTransformer
-from bertopic.representation import MaximalMarginalRelevance
 from umap import UMAP
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.pipeline import make_pipeline
-from sklearn.decomposition import TruncatedSVD
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sentence_transformers import SentenceTransformer
+from hdbscan import HDBSCAN
 
 
 class TopicDiscoverer:
-    def __init__(self, docs, years) -> None:
+    def __init__(self, docs, years, vectors) -> None:
         self.docs = docs
         self.years = years
+        self.embeddings = np.array([np.array(vector) for vector in vectors])
 
     def init_model(self):
-        sentence_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.embeddings = sentence_model.encode(
-            self.docs, show_progress_bar=False)
-
+        vectorizer_model = CountVectorizer(stop_words="english")
         umap_model = UMAP(n_neighbors=20, n_components=5,
                           min_dist=0.0, metric='cosine', random_state=42)
         ctfidf_model = ClassTfidfTransformer(reduce_frequent_words=True)
-        vectorizer_model = CountVectorizer(stop_words="english")
-        representation_model = MaximalMarginalRelevance(diversity=0.7)
+        hdbscan_model = HDBSCAN(min_cluster_size=20,
+                                metric='euclidean', prediction_data=True)
 
-        self.topic_model = BERTopic(min_topic_size=30, ctfidf_model=ctfidf_model, vectorizer_model=vectorizer_model,
-                                    umap_model=umap_model, representation_model=representation_model)
+        self.topic_model = BERTopic(min_topic_size=25, n_gram_range=(1, 2), ctfidf_model=ctfidf_model, vectorizer_model=vectorizer_model,
+                                    umap_model=umap_model, hdbscan_model=hdbscan_model)
         self.topic_model.fit(self.docs, self.embeddings)
 
-    def discover_topics(self) -> TopicDiscoveryResults:
+        readable_topic_labels = []
+        for i in range(0, min(10, len(self.topic_model.topic_labels_.keys()) - 1)):
+            readable_topic_labels.append(
+                f"{i}. {', '.join(self.topic_model.topic_labels_[i].split('_')[1:])}")
+
+        return readable_topic_labels
+
+    def topics_over_time(self) -> list[DiscoveredTopic]:
         topics, _ = self.topic_model.transform(self.docs, self.embeddings)
         topics_over_time = self.topic_model.topics_over_time(
             self.docs, self.years)
@@ -42,7 +43,6 @@ class TopicDiscoverer:
             selected_topics = list()
 
         selected_topics = sorted(freq_df.Topic.to_list()[:10])
-        selected_topics
 
         df = topics_over_time.loc[topics_over_time.Topic.isin(
             selected_topics), :]
@@ -59,19 +59,9 @@ class TopicDiscoverer:
             id=i
         ) for i in selected_topics]
 
-        clustering_results = self.cluster_documents()
+        return results
 
-        readable_topic_labels = []
-        for i in range(0, 10):
-            readable_topic_labels.append(
-                f"{i}. {', '.join(self.topic_model.topic_labels_[i].split('_')[1:])}")
-
-        return TopicDiscoveryResults(topics=readable_topic_labels, clusters=clustering_results, topics_over_time=results)
-
-    def cluster_documents(self):
-        return self.extract_topic_coordinates()
-
-    def extract_topic_coordinates(self, sample: float = None) -> (list[(float, float, int)], list[(int, str)]):
+    def cluster_documents(self, sample: float = None) -> ClusteringResults:
         topic_per_doc = self.topic_model.topics_
 
         # Sample data if required
@@ -88,8 +78,8 @@ class TopicDiscoverer:
         else:
             sampled_topics = topic_per_doc
 
-        umap_model = UMAP(n_neighbors=10, n_components=3,
-                          min_dist=0.0, metric='cosine').fit(self.embeddings)
+        umap_model = UMAP(n_neighbors=15, n_components=3,
+                          min_dist=0.0, metric='cosine', random_state=42).fit(self.embeddings)
         embeddings_2d = umap_model.embedding_
 
         # Separate the coordinates and topic labels

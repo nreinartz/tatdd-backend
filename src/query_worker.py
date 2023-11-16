@@ -4,7 +4,7 @@ from fastapi.concurrency import run_in_threadpool
 from data.process.query_repository import QueryRepository
 from data.weaviate.weaviate_data_provider import WeaviateAccessor
 
-from models.models import AnalysisResults, CitationRecommendationResults, DataStatistics, Publication, QueryEntry, QueryProgress, QueryType, SearchResults, TrendResults
+from models.models import AnalysisResults, CitationRecommendationResults, DataStatistics, Publication, QueryEntry, QueryProgress, QueryType, SearchResults, TopicDiscoveryResults, TrendResults
 
 from trend.descriptor.base_descriptor import BaseTrendDescriptor
 from trend.analysis.trend_analyser import TrendAnalyser
@@ -22,8 +22,6 @@ async def process_query(uuid: str, query_repo: QueryRepository,
         try:
             await __analyse_trends(query_repo, entry, trend_analyser,
                                    trend_descriptor, weaviate_accessor, data_statistics)
-
-            await __discover_topics(query_repo, entry, weaviate_accessor)
         except Exception as e:
             await query_repo.update_query_progress(entry.uuid, QueryProgress.FAILED)
             raise e
@@ -31,6 +29,13 @@ async def process_query(uuid: str, query_repo: QueryRepository,
     if entry.type & QueryType.CITATION_RECOMMENDATION:
         try:
             await __fetch_citation_recommendations(query_repo, entry, weaviate_accessor)
+        except Exception as e:
+            await query_repo.update_query_progress(entry.uuid, QueryProgress.FAILED)
+            raise e
+
+    if entry.type & QueryType.TREND_ANALYSIS:
+        try:
+            await __discover_topics(query_repo, entry, weaviate_accessor)
         except Exception as e:
             await query_repo.update_query_progress(entry.uuid, QueryProgress.FAILED)
             raise e
@@ -103,13 +108,14 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
 
 
 async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
-    await query_repo.update_query_progress(entry.uuid, QueryProgress.DISCOVERING_TOPICS)
+    await query_repo.update_query_progress(entry.uuid, QueryProgress.CLUSTERING_TOPICS)
 
     max_documents = 6000
     pop_sum = sum(entry.results.search_results.adjusted)
 
     docs = []
     years = []
+    vectors = []
 
     for year in range(entry.start_year, entry.end_year + 1):
         if entry.results.search_results.adjusted[year - entry.start_year] == 0:
@@ -130,14 +136,28 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weav
 
         years.extend([x.properties["year"] for x in publications])
 
-    topic_discoverer = TopicDiscoverer(docs, years)
+        vectors.extend([x.vector for x in publications])
 
-    await run_in_threadpool(
+    topic_discoverer = TopicDiscoverer(docs, years, vectors)
+
+    topics = await run_in_threadpool(
         lambda: topic_discoverer.init_model()
     )
 
-    entry.results.topic_discovery_results = await run_in_threadpool(
-        lambda: topic_discoverer.discover_topics()
+    discovery_results = TopicDiscoveryResults(
+        topics, None, None)
+
+    entry.results.topic_discovery_results = discovery_results
+
+    discovery_results.clusters = await run_in_threadpool(
+        lambda: topic_discoverer.cluster_documents()
+    )
+
+    entry.progress = QueryProgress.TOPICS_OVER_TIME
+    await query_repo.update_query_entry(entry)
+
+    discovery_results.topics_over_time = await run_in_threadpool(
+        lambda: topic_discoverer.topics_over_time()
     )
 
     await query_repo.update_query_entry(entry)

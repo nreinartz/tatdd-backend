@@ -14,9 +14,9 @@ class QueryProgress(int, Enum):
     DATA_RETRIEVAL = 2
     ANALYSING_TRENDS = 3
     GENERATING_DESCRIPTION = 4
-    DISCOVERING_TOPICS = 5
+    CITATION_RETRIEVAL = 5
     CLUSTERING_TOPICS = 6
-    CITATION_RETRIEVAL = 7
+    TOPICS_OVER_TIME = 7
     FINISHED = 8
     FAILED = 9
 
@@ -100,8 +100,8 @@ class ClusteringResults:
 @dataclass
 class TopicDiscoveryResults:
     topics: dict[str, str]
-    clusters: ClusteringResults
-    topics_over_time: list[DiscoveredTopic]
+    clusters: ClusteringResults | None = None
+    topics_over_time: list[DiscoveredTopic] | None = None
 
 
 @dataclass

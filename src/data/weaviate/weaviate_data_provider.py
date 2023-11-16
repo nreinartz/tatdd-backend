@@ -25,7 +25,7 @@ class WeaviateAccessor:
         results = self.publications.query.near_text(
             query=concepts,
             filters=Filter("year").equal(year),
-            return_metadata=MetadataQuery(vector=True),
+            include_vector=True,
             return_properties=["title", "abstract", "year"],
             limit=limit
         )
@@ -76,7 +76,7 @@ class WeaviateAccessor:
             filters=filters,
             return_properties=["title", "doi", "authors",
                                "year", "type", "abstract", "n_citations"],
-            return_metadata=MetadataQuery(distance=True),
+            return_metadata=["distance"],
             limit=limit
         )
 
