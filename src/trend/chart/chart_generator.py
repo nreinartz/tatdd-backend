@@ -2,7 +2,7 @@ import plotly.graph_objs as go
 from models.models import QueryEntry, TrendType
 
 
-def generate_trend_chart(entry: QueryEntry):
+def generate_trend_chart(entry: QueryEntry, format: str):
     # Extracting the x and y values from the data
     x_values = list(range(entry.start_year, entry.end_year + 1))
     y_values = entry.results["search_results"]["adjusted"]
@@ -37,4 +37,7 @@ def generate_trend_chart(entry: QueryEntry):
     fig.update_layout(showlegend=False, template="plotly_white",
                       margin=dict(l=10, r=10, b=10, t=10))
 
-    return fig.to_image(format="png", width=600, height=250, scale=1)
+    if format == "png":
+        return fig.to_image(format="png", width=600, height=250, scale=1)
+
+    return fig.to_image(format="svg", width=1200, height=500, scale=1)

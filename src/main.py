@@ -156,21 +156,21 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
 
 @app.head("/api/queries/{query_id}/chart")
 @app.get("/api/queries/{query_id}/chart")
-async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
+async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository), format: str = "svg"):
     entry = await query_repo.get_query_entry(query_id)
     if entry is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
 
-    content = generate_trend_chart(entry)
+    content = generate_trend_chart(entry, format)
+
     headers = {
-        "Content-Type": "image/png",
+        "Content-Type": "image/png" if format == "png" else "image/svg+xml",
         "Cache-Control": "public,max-age=3600",
         "Accept-Ranges": "bytes",
         "etag": "1",
-        "Last-Modified": "1"
     }
 
-    return Response(content=content, headers=headers, media_type="image/png")
+    return Response(content=content, headers=headers, media_type=headers["Content-Type"])
 
 
 if __name__ == "__main__":
