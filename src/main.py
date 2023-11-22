@@ -154,13 +154,17 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
     return JSONResponse(status_code=status.HTTP_200_OK, content=asdict(entry))
 
 
+@app.head("/api/queries/{query_id}/chart")
 @app.get("/api/queries/{query_id}/chart")
 async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
     entry = await query_repo.get_query_entry(query_id)
     if entry is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
 
-    return Response(content=generate_trend_chart(entry), media_type="image/svg+xml")
+    content = generate_trend_chart(entry)
+
+    return Response(content=content, headers={"Content-Type": "image/svg+xml"}, media_type="image/svg+xml")
+
 
 if __name__ == "__main__":
     import uvicorn
