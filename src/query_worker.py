@@ -110,8 +110,10 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
 async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
     await query_repo.update_query_progress(entry.uuid, QueryProgress.CLUSTERING_TOPICS)
 
-    max_documents = 6000
+    tot_sum = sum(entry.results.search_results.raw)
     pop_sum = sum(entry.results.search_results.adjusted)
+
+    max_documents = min(6000, tot_sum)
 
     docs = []
     years = []

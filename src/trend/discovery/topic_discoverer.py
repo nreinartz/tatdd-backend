@@ -15,18 +15,21 @@ class TopicDiscoverer:
 
     def init_model(self):
         vectorizer_model = CountVectorizer(stop_words="english")
-        umap_model = UMAP(n_neighbors=20, n_components=5,
+        umap_model = UMAP(n_neighbors=15, n_components=6,
                           min_dist=0.0, metric='cosine', random_state=42)
         ctfidf_model = ClassTfidfTransformer(reduce_frequent_words=True)
         hdbscan_model = HDBSCAN(min_cluster_size=20,
                                 metric='euclidean', prediction_data=True)
 
-        self.topic_model = BERTopic(min_topic_size=25, n_gram_range=(1, 2), ctfidf_model=ctfidf_model, vectorizer_model=vectorizer_model,
+        self.topic_model = BERTopic(min_topic_size=20, n_gram_range=(1, 2), ctfidf_model=ctfidf_model, vectorizer_model=vectorizer_model,
                                     umap_model=umap_model, hdbscan_model=hdbscan_model)
         self.topic_model.fit(self.docs, self.embeddings)
 
         readable_topic_labels = []
-        for i in range(0, min(10, len(self.topic_model.topic_labels_.keys()) - 1)):
+        num_topics = len(self.topic_model.topic_labels_.keys()) + \
+            (-1 if -1 in self.topic_model.topic_labels_ else 0)
+
+        for i in range(0, min(10, num_topics)):
             readable_topic_labels.append(
                 f"{i}. {', '.join(self.topic_model.topic_labels_[i].split('_')[1:])}")
 
