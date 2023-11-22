@@ -162,8 +162,15 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
 
     content = generate_trend_chart(entry)
+    headers = {
+        "Content-Type": "image/png",
+        "Cache-Control": "public,max-age=3600",
+        "Accept-Ranges": "bytes",
+        "etag": "1",
+        "Last-Modified": "1"
+    }
 
-    return Response(content=content, headers={"Content-Type": "image/png"}, media_type="image/png")
+    return Response(content=content, headers=headers, media_type="image/png")
 
 
 if __name__ == "__main__":
