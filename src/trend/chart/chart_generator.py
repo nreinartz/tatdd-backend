@@ -34,6 +34,7 @@ def generate_trend_chart(entry: QueryEntry):
         fig.add_shape(type="line", x0=bp, y0=0, x1=bp, y1=max(y_values),
                       line=dict(color="red", width=1, dash="dash"))
 
-    fig.update_layout(showlegend=False, template="plotly_white")
+    fig.update_layout(showlegend=False, template="plotly_white",
+                      margin=dict(l=10, r=10, b=10, t=10))
 
-    return fig.to_image(format="svg", width=1200, height=500, scale=1)
+    return fig.to_image(format="png", width=1200, height=500, scale=1)

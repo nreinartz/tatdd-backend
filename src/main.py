@@ -163,7 +163,7 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
 
     content = generate_trend_chart(entry)
 
-    return Response(content=content, headers={"Content-Type": "image/svg+xml"}, media_type="image/svg+xml")
+    return Response(content=content, headers={"Content-Type": "image/png"}, media_type="image/png")
 
 
 if __name__ == "__main__":
