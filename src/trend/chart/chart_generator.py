@@ -37,4 +37,4 @@ def generate_trend_chart(entry: QueryEntry):
     fig.update_layout(showlegend=False, template="plotly_white",
                       margin=dict(l=10, r=10, b=10, t=10))
 
-    return fig.to_image(format="png", width=1200, height=500, scale=1)
+    return fig.to_image(format="png", width=600, height=250, scale=1)
