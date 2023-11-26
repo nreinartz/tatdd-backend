@@ -118,6 +118,7 @@ async def create_process_request(query_request: QueryRequest, background_tasks: 
                                  weaviate_accessor: WeaviateAccessor = Depends(get_weaviate_accessor), trend_analyser: TrendAnalyser = Depends(get_trend_analyser),
                                  trend_descriptor: BaseTrendDescriptor = Depends(get_trend_descriptor)):
 
+    query_request.cutoff = max(0.7, min(0.98, query_request.cutoff))
     entry: QueryEntry = await query_repo.create_query_entry(query_request)
 
     background_tasks.add_task(

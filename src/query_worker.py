@@ -44,26 +44,39 @@ async def process_query(uuid: str, query_repo: QueryRepository,
 
 
 async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, data_statistics: DataStatistics):
-    results = await run_in_threadpool(
+    pub_objects = await run_in_threadpool(
+        lambda: weaviate_accessor.get_publications_per_year_adjusted(
+            entry.topics, data_statistics.publications_per_year, entry.start_year, entry.end_year)
+    )
+
+    per_year = await run_in_threadpool(
         lambda: weaviate_accessor.get_publications_per_year(
-            entry.topics, entry.distance, entry.start_year, entry.end_year)
+            entry.topics, entry.cutoff, entry.start_year, entry.end_year)
     )
 
-    pub_types = await run_in_threadpool(
-        lambda: weaviate_accessor.get_count_per_pub_type(
-            entry.topics, entry.distance, entry.start_year, entry.end_year)
-    )
+    year_value_pairs = {year: [] for year in range(1990, 2023)}
+    pub_type_count = {}
+
+    for pub_object in pub_objects:
+        year_value_pairs[int(pub_object.properties["year"])].append(
+            (1 - pub_object.metadata.distance))
+        pub_type = pub_object.properties["type"].lower()
+        pub_type_count[pub_type] = (
+            pub_type_count[pub_type] if pub_type in pub_type_count else 0) + 1
+
     raw_values = [
-        results[key] for key in sorted(list(results.keys()))
+        np.mean(year_value_pairs[year]) for year in range(entry.start_year, entry.end_year + 1)
     ]
-    adjusted_values = [
-        (results[key] / data_statistics.publications_per_year[key]) * 100
-        for key in sorted(list(results.keys()))
-    ]
-    adjusted_values = np.round(
-        (adjusted_values/np.max(adjusted_values))*100).tolist()
 
-    return SearchResults(raw=raw_values, adjusted=adjusted_values, pub_types=pub_types)
+    clamped_values = np.maximum(raw_values, entry.cutoff)
+
+    adjusted_values = np.round(100 * (np.array(clamped_values) - np.min(clamped_values)) / (
+        np.max(clamped_values) - np.min(clamped_values))).tolist()
+
+    per_year_values = [per_year[year]
+                       for year in range(entry.start_year, entry.end_year + 1)]
+
+    return SearchResults(raw=raw_values, raw_per_year=per_year_values, adjusted=adjusted_values, pub_types=pub_type_count)
 
 
 async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend_analyser: TrendAnalyser,
@@ -110,10 +123,10 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
 async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
     await query_repo.update_query_progress(entry.uuid, QueryProgress.CLUSTERING_TOPICS)
 
-    tot_sum = sum(entry.results.search_results.raw)
+    tot_sum = sum(entry.results.search_results.raw_per_year)
     pop_sum = sum(entry.results.search_results.adjusted)
 
-    max_documents = min(6000, tot_sum)
+    max_documents = min(7000, tot_sum)
 
     docs = []
     years = []
@@ -133,6 +146,7 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weav
             lambda: weaviate_accessor.get_publications_in_year(
                 entry.topics, year, doc_limit)
         )
+
         docs.extend(
             [f"{x.properties['title']}: {x.properties['abstract']}" for x in publications])
 
@@ -170,7 +184,7 @@ async def __fetch_citation_recommendations(query_repo: QueryRepository, entry: Q
 
     publications = await run_in_threadpool(
         lambda: weaviate_accessor.get_matching_publications(
-            entry.topics, entry.start_year, entry.end_year, 15, entry.min_citations)
+            entry.topics, entry.start_year, entry.end_year, 20, entry.min_citations)
     )
 
     entry.results.citation_results = CitationRecommendationResults(
@@ -181,7 +195,7 @@ async def __fetch_citation_recommendations(query_repo: QueryRepository, entry: Q
             year=x.properties["year"],
             type=x.properties["type"],
             abstract=x.properties["abstract"],
-            distance=x.metadata.distance,
+            similarity=1-x.metadata.distance,
             citations=x.properties["n_citations"] if "n_citations" in x.properties else None
         ) for x in publications]
     )

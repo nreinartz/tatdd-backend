@@ -32,7 +32,7 @@ class QueryRequest(BaseModel):
     topics: list[str]
     start_year: int
     end_year: int
-    distance: float = 0.11
+    cutoff: float = 0.89
     min_citations: int = 0
 
 
@@ -41,13 +41,14 @@ class QueryRequest(BaseModel):
     topics: list[str]
     start_year: int
     end_year: int
-    distance: float = 0.11
+    cutoff: float = 0.89
     min_citations: int = 0
 
 
 @dataclass
 class SearchResults:
     raw: list[float]
+    raw_per_year: list[float]
     adjusted: list[float]
     pub_types: dict[str, int]
 
@@ -76,7 +77,7 @@ class Publication:
     authors: list[str]
     year: int
     type: str
-    distance: float
+    similarity: float
     abstract: str
     citations: int
 
@@ -125,7 +126,7 @@ class QueryEntry:
     topics: list[str]
     start_year: int
     end_year: int
-    distance: float
+    cutoff: float
     min_citations: int
     results: None | AnalysisResults | CitationRecommendationResults
 

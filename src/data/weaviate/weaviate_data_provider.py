@@ -2,6 +2,7 @@ import weaviate
 from weaviate.classes import Filter, MetadataQuery
 
 import datetime
+import numpy as np
 
 
 class WeaviateAccessor:
@@ -10,12 +11,12 @@ class WeaviateAccessor:
         self.publications = self.client.collections.get("Publication")
 
     def get_grouped_per_year(self, concepts: list[str],
-                             distance: float, group_prop: str, start_year: int = 1000,
+                             cutoff: float, group_prop: str, start_year: int = 1000,
                              end_year: int = datetime.datetime.now().year):
 
         return self.publications.aggregate_group_by.near_text(
             query=concepts,
-            distance=distance,
+            distance=1 - cutoff,
             filters=Filter("year").greater_or_equal(
                 start_year) & Filter("year").less_or_equal(end_year),
             group_by=group_prop
@@ -33,10 +34,10 @@ class WeaviateAccessor:
         return results.objects
 
     def get_publications_per_year(self, concepts: list[str],
-                                  distance: float, start_year: int = 1000,
+                                  cutoff: float, start_year: int = 1000,
                                   end_year: int = datetime.datetime.now().year):
         query_results = self.get_grouped_per_year(
-            concepts, distance, "year", start_year, end_year)
+            concepts, cutoff, "year", start_year, end_year)
 
         results_default = {
             key: 0
@@ -50,11 +51,26 @@ class WeaviateAccessor:
 
         return {**results_default, **results_query}
 
+    def get_publications_per_year_adjusted(self, concepts: list[str], year_stats: dict[int, int],
+                                           start_year: int = 1000, end_year: int = datetime.datetime.now().year):
+        objects = []
+        for i in range(start_year, end_year + 1):
+            year_result = self.publications.query.near_text(
+                query=concepts,
+                filters=Filter("year").equal(i),
+                return_properties=["year", "type"],
+                return_metadata=MetadataQuery(distance=True),
+                limit=int(np.log10(year_stats[i])*10)
+            )
+            objects += year_result.objects
+
+        return objects
+
     def get_count_per_pub_type(self, concepts: list[str],
-                               distance: float, start_year: int = 1000,
+                               cutoff: float, start_year: int = 1000,
                                end_year: int = datetime.datetime.now().year):
         query_results = self.get_grouped_per_year(
-            concepts, distance, "type", start_year, end_year)
+            concepts, cutoff, "type", start_year, end_year)
 
         return dict(
             [(entry.grouped_by.value, entry.total_count)
@@ -76,7 +92,7 @@ class WeaviateAccessor:
             filters=filters,
             return_properties=["title", "doi", "authors",
                                "year", "type", "abstract", "n_citations"],
-            return_metadata=["distance"],
+            return_metadata=MetadataQuery(distance=True),
             limit=limit
         )
 
