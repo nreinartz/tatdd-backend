@@ -14,7 +14,7 @@ async def create_table(conn: asyncpg.Connection):
             topics TEXT[],
             start_year INTEGER NOT NULL,
             end_year INTEGER NOT NULL,
-            cutoff NUMERIC(3, 2) NOT NULL,
+            cutoff NUMERIC(4, 3) NOT NULL,
             min_citations INTEGER,
             results JSON
         );

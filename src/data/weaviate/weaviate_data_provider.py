@@ -41,7 +41,7 @@ class WeaviateAccessor:
 
         results_default = {
             key: 0
-            for key in range(start_year, end_year)
+            for key in range(start_year, end_year + 1)
         }
 
         results_query = dict(

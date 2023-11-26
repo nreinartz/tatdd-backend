@@ -54,7 +54,8 @@ async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, d
             entry.topics, entry.cutoff, entry.start_year, entry.end_year)
     )
 
-    year_value_pairs = {year: [] for year in range(1990, 2023)}
+    year_value_pairs = {year: []
+                        for year in range(entry.start_year, entry.end_year + 1)}
     pub_type_count = {}
 
     for pub_object in pub_objects:
@@ -70,8 +71,12 @@ async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, d
 
     clamped_values = np.maximum(raw_values, entry.cutoff)
 
-    adjusted_values = np.round(100 * (np.array(clamped_values) - np.min(clamped_values)) / (
-        np.max(clamped_values) - np.min(clamped_values))).tolist()
+    if np.max(clamped_values) > np.min(clamped_values):
+        adjusted_values = np.round(100 * (np.array(clamped_values) - np.min(clamped_values)) / (
+            np.max(clamped_values) - np.min(clamped_values))).tolist()
+    else:
+        adjusted_values = [0 for _ in range(
+            entry.start_year, entry.end_year + 1)]
 
     per_year_values = [per_year[year]
                        for year in range(entry.start_year, entry.end_year + 1)]

@@ -18,8 +18,14 @@ class MlrTimeSeriesSegmenter(BaseTimeSeriesSegmenter):
 
         y_adjusted = (y_copy / np.max(y_copy)) * 100
 
-        (_, _, breakpoints, _) = self.find_best_models(
-            x_copy, y_adjusted, list(range(1, 11)), top_n=1, fit_repetitions=2, n_boot=500)[0]
+        breakpoints = []
+        segments = self.find_best_models(
+            x_copy, y_adjusted, list(range(1, 11)), top_n=1, fit_repetitions=2, n_boot=500)
+
+        if all(len(x) == 3 for x in segments):
+            print("No breakpoints found")
+        else:
+            breakpoints = segments[0][2]
 
         if len(x_copy) != len(x):
             return [x_copy[0]] + breakpoints
@@ -57,4 +63,5 @@ class MlrTimeSeriesSegmenter(BaseTimeSeriesSegmenter):
         with multiprocessing.Pool(processes=max_processes) as pool:
             results = pool.starmap(
                 self.fit_model, [(x, y, n, fit_repetitions, n_boot) for n in n_breakpoints])
+
         return sorted(results, key=lambda x: x[1])[:top_n]
