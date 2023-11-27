@@ -27,11 +27,11 @@ class MlrTimeSeriesSegmenter(BaseTimeSeriesSegmenter):
         else:
             breakpoints = segments[0][2]
 
-        if len(x_copy) != len(x):
+        if len(x_copy) != len(x) and x_copy[0] not in breakpoints:
             return [x_copy[0]] + breakpoints
 
         #  Unique list so we prevent duplicates
-        return list(set(breakpoints))
+        return breakpoints
 
     def fit_model(self, x, y, n_breakpoints: int, fit_repetitions: int = 5, n_boot: int = 50) -> tuple:
         # https://github.com/tiangolo/fastapi/issues/1487
