@@ -51,6 +51,7 @@ class SearchResults:
     raw_per_year: list[float]
     adjusted: list[float]
     pub_types: dict[str, int]
+    adjusted_cutoff: float | None = None
 
 
 @dataclass

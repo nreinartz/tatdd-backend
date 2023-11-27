@@ -10,7 +10,10 @@ class MlrTimeSeriesSegmenter(BaseTimeSeriesSegmenter):
     def __init__(self, min_segment_length: int = 4):
         super().__init__(min_segment_length)
 
-    def segment(self, x, y: list[float] | list[int]) -> (list[tuple], list[dict]):
+    def segment(self, x, y: list[float] | list[int]) -> list[int]:
+        if all(val == 0 for val in y):
+            return []
+
         x_copy, y_copy = x.copy(), y.copy()
         while y_copy[0] == 0 and y_copy[1] == 0:
             y_copy.pop(0)

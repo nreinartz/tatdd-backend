@@ -43,15 +43,26 @@ async def process_query(uuid: str, query_repo: QueryRepository,
     await query_repo.update_query_progress(entry.uuid, QueryProgress.FINISHED)
 
 
-async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, data_statistics: DataStatistics):
+async def __fetch_data(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor, data_statistics: DataStatistics):
+    num_pubs_found = 0
+    adjusted_cutoff = entry.cutoff
+
+    while num_pubs_found < 500:
+        per_year = await run_in_threadpool(
+            lambda: weaviate_accessor.get_publications_per_year(
+                entry.topics, adjusted_cutoff, entry.start_year, entry.end_year)
+        )
+        num_pubs_found = sum(per_year.values())
+
+        if num_pubs_found < 500:
+            adjusted_cutoff = adjusted_cutoff - 0.01
+            print("Adjusting cutoff to ", adjusted_cutoff)
+
+    await query_repo.update_query_entry(entry)
+
     pub_objects = await run_in_threadpool(
         lambda: weaviate_accessor.get_publications_per_year_adjusted(
             entry.topics, data_statistics.publications_per_year, entry.start_year, entry.end_year)
-    )
-
-    per_year = await run_in_threadpool(
-        lambda: weaviate_accessor.get_publications_per_year(
-            entry.topics, entry.cutoff, entry.start_year, entry.end_year)
     )
 
     year_value_pairs = {year: []
@@ -69,7 +80,7 @@ async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, d
         np.mean(year_value_pairs[year]) for year in range(entry.start_year, entry.end_year + 1)
     ]
 
-    clamped_values = np.maximum(raw_values, entry.cutoff)
+    clamped_values = np.maximum(raw_values, adjusted_cutoff)
 
     if np.max(clamped_values) > np.min(clamped_values):
         adjusted_values = np.round(100 * (np.array(clamped_values) - np.min(clamped_values)) / (
@@ -81,7 +92,16 @@ async def __fetch_data(entry: QueryEntry, weaviate_accessor: WeaviateAccessor, d
     per_year_values = [per_year[year]
                        for year in range(entry.start_year, entry.end_year + 1)]
 
-    return SearchResults(raw=raw_values, raw_per_year=per_year_values, adjusted=adjusted_values, pub_types=pub_type_count)
+    entry.results.search_results = SearchResults(
+        raw=raw_values,
+        raw_per_year=per_year_values,
+        adjusted=adjusted_values,
+        pub_types=pub_type_count,
+        adjusted_cutoff=adjusted_cutoff if adjusted_cutoff != entry.cutoff else None
+    )
+
+    # Return entry here since we updates properties
+    return entry
 
 
 async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend_analyser: TrendAnalyser,
@@ -92,7 +112,7 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
     await query_repo.update_query_entry(entry)
 
     try:
-        entry.results.search_results = await __fetch_data(entry, weaviate_accessor, data_statistics)
+        entry = await __fetch_data(query_repo, entry, weaviate_accessor, data_statistics)
     except Exception as e:
         await query_repo.update_query_progress(entry.uuid, QueryProgress.FAILED)
         raise e

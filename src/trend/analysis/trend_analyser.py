@@ -13,13 +13,20 @@ def get_trend_analyser():
 class TrendAnalyser:
     def analyse(self, x, y) -> (list[int], list[Trend]):
         time_series_segmenter = MlrTimeSeriesSegmenter(min_segment_length=4)
+
+        if all(val == 0 for val in y):
+            return [], self.__get_trends_for_segments(x, y, [(0, len(x) - 1)])
+
+        y_adjusted = (y / np.max(y)) * 100
         cuts = time_series_segmenter.segment(x, y)
+
+        if len(cuts) == 0:
+            return [], self.__get_trends_for_segments(x, y_adjusted, [(0, len(x) - 1)])
+
         cuts_i = [0] + [x.index(cut) for cut in cuts] + [len(x) - 1]
 
         # Sub-trends
         segments = [(cuts_i[i], cut) for i, cut in enumerate(cuts_i[1:])]
-
-        y_adjusted = (y / np.max(y)) * 100
 
         trends = self.__get_trends_for_segments(x, y_adjusted, segments)
         trend_slopes = [trends[i].type.value for i in range(len(trends))]

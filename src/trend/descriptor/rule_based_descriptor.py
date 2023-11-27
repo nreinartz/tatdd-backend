@@ -281,6 +281,9 @@ class RuleBasedDescriptor(BaseTrendDescriptor):
                              end_year: int, values: list[int],
                              global_trend: Trend, sub_trends: list[Trend]) -> str:
 
+        if len(sub_trends) == 0:
+            return "No trends were detected."
+
         segments = [Segment(t.start, t.end, t.type, t.slope, values[t.start - start_year:t.end - start_year + 1])
                     for t in sub_trends]
         descriptions = [segments[0].describe()]
