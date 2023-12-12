@@ -114,9 +114,9 @@ def update_data_statistics():
 
 
 @app.post("/api/queries", response_model=QueryEntry, status_code=status.HTTP_201_CREATED)
-async def create_process_request(query_request: QueryRequest, background_tasks: BackgroundTasks, query_repo: QueryRepository = Depends(get_query_repository),
-                                 weaviate_accessor: WeaviateAccessor = Depends(get_weaviate_accessor), trend_analyser: TrendAnalyser = Depends(get_trend_analyser),
-                                 trend_descriptor: BaseTrendDescriptor = Depends(get_trend_descriptor)):
+async def create_query(query_request: QueryRequest, background_tasks: BackgroundTasks, query_repo: QueryRepository = Depends(get_query_repository),
+                       weaviate_accessor: WeaviateAccessor = Depends(get_weaviate_accessor), trend_analyser: TrendAnalyser = Depends(get_trend_analyser),
+                       trend_descriptor: BaseTrendDescriptor = Depends(get_trend_descriptor)):
 
     query_request.cutoff = max(0.7, min(0.98, query_request.cutoff))
     entry: QueryEntry = await query_repo.create_query_entry(query_request)
@@ -140,7 +140,7 @@ async def get_data_statistics():
 
 
 @app.get("/api/queries/{query_id}", response_model=QueryEntry)
-async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
+async def get_query(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
     entry = await query_repo.get_query_entry(query_id)
     if entry is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
@@ -148,7 +148,7 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
 
 
 @app.get("/api/queries/{query_id}/summary", response_model=QueryEntry)
-async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
+async def get_query_summary(query_id: str, query_repo: QueryRepository = Depends(get_query_repository)):
     entry = await query_repo.get_query_summary(query_id)
     if entry is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
@@ -157,7 +157,7 @@ async def get_process_progress(query_id: str, query_repo: QueryRepository = Depe
 
 @app.head("/api/queries/{query_id}/chart")
 @app.get("/api/queries/{query_id}/chart")
-async def get_process_progress(query_id: str, query_repo: QueryRepository = Depends(get_query_repository), format: str = "svg"):
+async def get_trend_chart(query_id: str, query_repo: QueryRepository = Depends(get_query_repository), format: str = "svg"):
     entry = await query_repo.get_query_entry(query_id)
     if entry is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"message": "Query not found"})
