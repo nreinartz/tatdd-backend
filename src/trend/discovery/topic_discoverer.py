@@ -2,9 +2,14 @@ import numpy as np
 from models.models import ClusteringResults, DiscoveredTopic
 from bertopic import BERTopic
 from bertopic.vectorizers import ClassTfidfTransformer
+from bertopic.representation import MaximalMarginalRelevance
 from umap import UMAP
 from sklearn.feature_extraction.text import CountVectorizer
 from hdbscan import HDBSCAN
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+additional_stopwords = ["et", "al", "jats", "pp"]
+all_stopwords = list(ENGLISH_STOP_WORDS.union(additional_stopwords))
 
 
 class TopicDiscoverer:
@@ -14,15 +19,17 @@ class TopicDiscoverer:
         self.embeddings = np.array([np.array(vector) for vector in vectors])
 
     def init_model(self):
-        vectorizer_model = CountVectorizer(stop_words="english")
-        umap_model = UMAP(n_neighbors=15, n_components=4,
+        vectorizer_model = CountVectorizer(
+            stop_words=all_stopwords, min_df=7, ngram_range=(1, 2))
+        umap_model = UMAP(n_neighbors=15, n_components=6,
                           min_dist=0.0, metric='cosine', random_state=42)
         ctfidf_model = ClassTfidfTransformer(reduce_frequent_words=True)
         hdbscan_model = HDBSCAN(min_cluster_size=10,
                                 metric='euclidean', prediction_data=True)
+        representation_model = MaximalMarginalRelevance(diversity=0.4)
 
         self.topic_model = BERTopic(min_topic_size=15, ctfidf_model=ctfidf_model, vectorizer_model=vectorizer_model,
-                                    umap_model=umap_model, hdbscan_model=hdbscan_model)
+                                    umap_model=umap_model, hdbscan_model=hdbscan_model, representation_model=representation_model)
         self.topic_model.fit(self.docs, self.embeddings)
 
         readable_topic_labels = []
