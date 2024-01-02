@@ -148,36 +148,16 @@ async def __analyse_trends(query_repo: QueryRepository, entry: QueryEntry, trend
 async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weaviate_accessor: WeaviateAccessor):
     await query_repo.update_query_progress(entry.uuid, QueryProgress.CLUSTERING_TOPICS)
 
-    tot_sum = sum(entry.results.search_results.raw_per_year)
-    pop_sum = sum(entry.results.search_results.adjusted)
+    max_documents = 6500
 
-    max_documents = min(7000, max(tot_sum, 5000))
+    matching_pubs = weaviate_accessor.get_matching_publications_with_vector(
+        entry.topics, entry.start_year, entry.end_year, max_documents
+    )
 
-    docs = []
-    years = []
-    vectors = []
-
-    for year in range(entry.start_year, entry.end_year + 1):
-        if entry.results.search_results.adjusted[year - entry.start_year] == 0:
-            continue
-
-        doc_limit = int(np.round(
-            max_documents * (entry.results.search_results.adjusted[year - entry.start_year] / pop_sum)))
-
-        if doc_limit == 0:
-            continue
-
-        publications = await run_in_threadpool(
-            lambda: weaviate_accessor.get_publications_in_year(
-                entry.topics, year, doc_limit)
-        )
-
-        docs.extend(
-            [f"{x.properties['title']}: {x.properties['abstract']}" for x in publications])
-
-        years.extend([x.properties["year"] for x in publications])
-
-        vectors.extend([x.vector for x in publications])
+    docs = [
+        f"{x.properties['title']}: {x.properties['abstract']}" for x in matching_pubs]
+    years = [x.properties["year"] for x in matching_pubs]
+    vectors = [x.vector for x in matching_pubs]
 
     topic_discoverer = TopicDiscoverer(docs, years, vectors)
 

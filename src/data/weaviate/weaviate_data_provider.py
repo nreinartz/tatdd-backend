@@ -98,6 +98,22 @@ class WeaviateAccessor:
 
         return results.objects
 
+    def get_matching_publications_with_vector(self, concepts: list[str], start_year: int,
+                                              end_year: int, limit: int = 3000):
+
+        filters = Filter("year").greater_or_equal(
+            start_year) & Filter("year").less_or_equal(end_year)
+
+        results = self.publications.query.near_text(
+            query=concepts,
+            filters=filters,
+            include_vector=True,
+            return_properties=["title", "abstract", "year"],
+            limit=limit
+        )
+
+        return results.objects
+
     def get_statistics_for_year(self, year: int) -> int:
         results = self.publications.aggregate_group_by.over_all(
             filters=Filter("year").equal(year),
