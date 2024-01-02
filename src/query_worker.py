@@ -151,7 +151,7 @@ async def __discover_topics(query_repo: QueryRepository, entry: QueryEntry, weav
     tot_sum = sum(entry.results.search_results.raw_per_year)
     pop_sum = sum(entry.results.search_results.adjusted)
 
-    max_documents = min(7000, max(tot_sum, 2000))
+    max_documents = min(7000, max(tot_sum, 3500))
 
     docs = []
     years = []
