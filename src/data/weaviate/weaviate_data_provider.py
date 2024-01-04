@@ -117,7 +117,8 @@ class WeaviateAccessor:
     def get_statistics_for_year(self, year: int) -> int:
         results = self.publications.aggregate_group_by.over_all(
             filters=Filter("year").equal(year),
-            group_by="year"
+            group_by="year",
+            total_count=True
         )
 
         return results[0].total_count

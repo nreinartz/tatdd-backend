@@ -46,7 +46,7 @@ class MlrTimeSeriesSegmenter(BaseTimeSeriesSegmenter):
 
         for _ in range(fit_repetitions):
             pw_fit = piecewise_regression.Fit(
-                x, y, n_breakpoints=n_breakpoints, n_boot=n_boot, min_distance_between_breakpoints=2/len(x))
+                x, y, n_breakpoints=n_breakpoints, n_boot=n_boot, min_distance_between_breakpoints=2/len(x), min_distance_to_edge=1/len(x))
             results = pw_fit.get_results()
             if results["converged"] == False:
                 break

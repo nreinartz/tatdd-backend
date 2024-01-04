@@ -20,7 +20,7 @@ class TopicDiscoverer:
 
     def init_model(self):
         vectorizer_model = CountVectorizer(
-            stop_words=all_stopwords, min_df=7, ngram_range=(1, 2))
+            stop_words=all_stopwords, min_df=2, ngram_range=(1, 2))
         umap_model = UMAP(n_neighbors=15, n_components=6,
                           min_dist=0.0, metric='cosine', random_state=42)
         ctfidf_model = ClassTfidfTransformer(reduce_frequent_words=True)
@@ -33,26 +33,26 @@ class TopicDiscoverer:
         self.topic_model.fit(self.docs, self.embeddings)
 
         readable_topic_labels = []
-        num_topics = len(self.topic_model.topic_labels_.keys()) + \
+        self.num_topics = len(self.topic_model.topic_labels_.keys()) + \
             (-1 if -1 in self.topic_model.topic_labels_ else 0)
 
-        for i in range(0, min(10, num_topics)):
+        for i in range(0, min(10, self.num_topics)):
             readable_topic_labels.append(
                 f"{i}. {', '.join(self.topic_model.topic_labels_[i].split('_')[1:])}")
 
         return readable_topic_labels
 
     def topics_over_time(self) -> list[DiscoveredTopic]:
-        topics, _ = self.topic_model.transform(self.docs, self.embeddings)
+        selected_topics = list(range(0, min(self.num_topics, 10)))
+        docs = [doc for doc, topic in zip(
+            self.docs, self.topic_model.topics_) if topic in selected_topics]
+        years = [year for year, topic in zip(
+            self.years, self.topic_model.topics_) if topic in selected_topics]
+        doc_topics = list(
+            filter(lambda x: x in selected_topics, self.topic_model.topics_))
+
         topics_over_time = self.topic_model.topics_over_time(
-            self.docs, self.years)
-
-        freq_df = self.topic_model.get_topic_freq()
-        freq_df = freq_df.loc[freq_df.Topic != -1, :]
-        if topics is not None:
-            selected_topics = list()
-
-        selected_topics = sorted(freq_df.Topic.to_list()[:10])
+            docs, years, doc_topics)
 
         df = topics_over_time.loc[topics_over_time.Topic.isin(
             selected_topics), :]
